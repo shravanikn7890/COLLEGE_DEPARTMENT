@@ -1,40 +1,24 @@
-from fastapi import FastAPI, UploadFile, File
+import streamlit as st
 import pandas as pd
-import io
 
-app = FastAPI(title="Cutoff Analysis API")
+st.title("Cutoff Analysis")
 
-@app.get("/")
-def home():
-    return {"message": "Cutoff Analysis API is running"}
+uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
 
-@app.post("/upload/")
-async def upload_file(file: UploadFile = File(...)):
-    contents = await file.read()
-
-    df = pd.read_csv(io.StringIO(contents.decode("utf-8")))
+if uploaded_file:
+    df = pd.read_csv(uploaded_file)
 
     required_cols = ['College', 'Branch', 'Category', 'Year', 'Cutoff']
 
     if not all(col in df.columns for col in required_cols):
-        return {"error": "Invalid CSV format"}
+        st.error("Invalid CSV format")
+    else:
+        pivot_df = df.pivot_table(
+            index=['College', 'Branch', 'Category'],
+            columns='Year',
+            values='Cutoff'
+        ).reset_index()
 
-    # Pivot (year-wise cutoff)
-    pivot_df = df.pivot_table(
-        index=['College', 'Branch', 'Category'],
-        columns='Year',
-        values='Cutoff'
-    ).reset_index()
-
-    # Create category-wise data
-    result = {}
-
-    categories = pivot_df['Category'].unique()
-
-    for cat in categories:
-        result[cat] = pivot_df[pivot_df['Category'] == cat].to_dict(orient="records")
-
-    return {
-        "message": "File processed successfully",
-        "data": result
-    }
+        st.success("File processed successfully")
+        st.dataframe(pivot_df)
+    
